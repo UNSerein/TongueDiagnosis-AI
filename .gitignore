@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env/
+
+# Data (DO NOT upload datasets)
+data/
+shezhenv3-coco/
+
+#Docs
+docs/
+
+# Model weights
+*.pth
+*.pt
+*.ckpt
+
+# Logs & experiments cache
+logs/
+runs/
+
+# OS
+.DS_Store
+Thumbs.db
