@@ -1,38 +1,49 @@
-import os
-import shutil
 import argparse
-from datetime import datetime
 from ultralytics import YOLO
 
-# =========================
-# 基本配置（可通过命令行修改）
-# =========================
 def parse_args():
     parser = argparse.ArgumentParser(description="YOLOv8 Training Script for Tongue Diagnosis")
-    parser.add_argument('--model', type=str, default='models/yolov8n.pt', help='Path to model weights (e.g., yolov8n.pt)')
-    parser.add_argument('--data', type=str, default='data/dataset.yaml', help='Path to dataset.yaml')
-    parser.add_argument('--epochs', type=int, default=5, help='Number of epochs')
-    parser.add_argument('--batch', type=int, default=4, help='Batch size (adjust based on memory)')
-    parser.add_argument('--imgsz', type=int, default=640, help='Image size')
-    parser.add_argument('--device', type=str, default='cpu', help='Device: "cpu" or "0" for GPU')
-    parser.add_argument('--exp_dir', type=str, default='experiments/exp1_yolov8n_cpu_ep5', help='Experiment directory')
-    parser.add_argument('--workers', type=int, default=4, help='Number of data loader workers')
+    parser.add_argument('--model', type=str, default='models/yolov8n.pt',
+                        help='Path to model weights (e.g., yolov8n.pt, yolov8s.pt)')
+    parser.add_argument('--data', type=str, default='data/dataset.yaml',
+                        help='Path to dataset.yaml')
+    parser.add_argument('--epochs', type=int, default=20,
+                        help='Number of epochs')
+    parser.add_argument('--batch', type=str, default='-1',
+                        help='Batch size: number (e.g. 16), -1 for AutoBatch, 0.8 for 80% memory')
+    parser.add_argument('--imgsz', type=int, default=640,
+                        help='Image size (pixels)')
+    parser.add_argument('--device', type=str, default='0',
+                        help='Device: "cpu" or GPU index like "0"')
+    parser.add_argument('--workers', type=int, default=8,
+                        help='Number of data loader workers')
+    parser.add_argument('--cache', action='store_true',
+                        help='Cache images to RAM/disk for faster loading')
+    parser.add_argument('--name', type=str, default=None,
+                        help='Custom name for this run (will appear in runs/detect/<name>)')
+    
     return parser.parse_args()
 
-args = parse_args()
 
-# =========================
-# 训练函数
-# =========================
-def train_yolo():
+def main():
+    args = parse_args()
+
     # 加载模型
     model = YOLO(args.model)
 
-    # 创建实验目录
-    results_dir = os.path.join(args.exp_dir, 'results')
-    os.makedirs(results_dir, exist_ok=True)
+    # 训练
+    print(f"Starting training with:")
+    print(f"  Model:     {args.model}")
+    print(f"  Data:      {args.data}")
+    print(f"  Epochs:    {args.epochs}")
+    print(f"  Batch:     {args.batch} (auto if -1)")
+    print(f"  Image size:{args.imgsz}")
+    print(f"  Device:    {args.device}")
+    print(f"  Workers:   {args.workers}")
+    print(f"  Cache:     {args.cache}")
+    if args.name:
+        print(f"  Run name:  {args.name}")
 
-    # 训练（指定project和name来控制保存路径）
     results = model.train(
         data=args.data,
         epochs=args.epochs,
@@ -40,31 +51,18 @@ def train_yolo():
         imgsz=args.imgsz,
         device=args.device,
         workers=args.workers,
-        project=results_dir,  # 保存到 experiments/xxx/results/runs
-        name='train',         # 子文件夹名
-        exist_ok=True         # 覆盖现有
+        cache=args.cache,
+        name=args.name,           # 如果指定 name，会保存到 runs/detect/<name>
+        exist_ok=True,            # 允许覆盖同名实验
+        project='runs/detect',    # 默认项目目录（可改，但通常不用动）
+        amp=True,                 # 混合精度加速
     )
 
-    # 训练完成后，复制关键文件到results_dir（YOLO默认保存到 runs/detect/train）
-    run_dir = os.path.join(results_dir, 'runs', 'detect', 'train')
-    if os.path.exists(run_dir):
-        # 复制指标、权重等
-        shutil.copy(os.path.join(run_dir, 'results.csv'), results_dir)
-        shutil.copy(os.path.join(run_dir, 'weights/best.pt'), results_dir)
-        shutil.copy(os.path.join(run_dir, 'weights/last.pt'), results_dir)
-        shutil.copy(os.path.join(run_dir, 'confusion_matrix.png'), results_dir)
-        shutil.copy(os.path.join(run_dir, 'results.png'), results_dir)
+    print("\nTraining completed.")
+    print("Results are saved in: runs/detect/train* (or the custom name you specified)")
+    print("Best weights: runs/detect/train*/weights/best.pt")
+    print("Last weights: runs/detect/train*/weights/last.pt")
 
-    # 生成README总结
-    with open(os.path.join(args.exp_dir, 'README.md'), 'a') as f:
-        f.write(f"\n## Training Summary ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})\n")
-        f.write(f"- Model: {args.model}\n")
-        f.write(f"- Epochs: {args.epochs}\n")
-        f.write(f"- Device: {args.device}\n")
-        f.write(f"- Batch Size: {args.batch}\n")
-        f.write(f"- Results saved to: {results_dir}\n")
-
-    print(f"Training completed. Results saved to: {results_dir}")
 
 if __name__ == "__main__":
-    train_yolo()
+    main()
